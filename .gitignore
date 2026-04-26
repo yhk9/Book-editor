@@ -1,0 +1,11 @@
+.env
+uploads/*.txt
+uploads/*.json
+uploads/*.tmp
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+.DS_Store
