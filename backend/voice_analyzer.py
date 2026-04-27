@@ -109,7 +109,6 @@ async def analyze_voice(
         max_tokens=1024,
         system=system,
         messages=messages,
-        betas=["prompt-caching-2024-07-31"],
     )
 
     raw = response.content[0].text.strip()

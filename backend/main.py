@@ -35,10 +35,23 @@ _last_pending: dict[str, dict] = {}  # session_id → last unanswered change eve
 
 
 def _get_client() -> anthropic.AsyncAnthropic:
+    # Try standard API key first
     api_key = os.environ.get("ANTHROPIC_API_KEY")
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    # Fall back to Claude Code session token (OAuth bearer token format)
     if not api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set.")
-    return anthropic.AsyncAnthropic(api_key=api_key)
+        token_file = os.environ.get("CLAUDE_SESSION_INGRESS_TOKEN_FILE")
+        if token_file and Path(token_file).exists():
+            api_key = Path(token_file).read_text().strip()
+
+    if not api_key:
+        raise HTTPException(status_code=500, detail="No API key found. Set ANTHROPIC_API_KEY.")
+
+    # OAuth/session tokens (sk-ant-si-*) use auth_token (Authorization: Bearer)
+    if api_key.startswith("sk-ant-si"):
+        return anthropic.AsyncAnthropic(auth_token=api_key, base_url=base_url)
+    return anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url)
 
 
 # ── REST endpoints ────────────────────────────────────────────────────────────

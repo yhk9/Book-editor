@@ -273,7 +273,6 @@ class BookEditorAgent:
             max_tokens=MAX_TOKENS,
             system=system,
             messages=messages,
-            betas=["prompt-caching-2024-07-31"],
         ) as stream:
             async for text in stream.text_stream:
                 accumulated += text
