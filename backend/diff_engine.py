@@ -1,7 +1,12 @@
 from __future__ import annotations
 import difflib
+import html
 import re
 from backend.models import TextChange, PassResult
+
+
+def _esc(text: str) -> str:
+    return html.escape(text, quote=False)
 
 
 def split_into_paragraphs(text: str) -> list[str]:
@@ -23,14 +28,14 @@ def compute_inline_diff(original: str, proposed: str) -> str:
     parts: list[str] = []
     for opcode, i1, i2, j1, j2 in matcher.get_opcodes():
         if opcode == "equal":
-            parts.append(" ".join(orig_words[i1:i2]))
+            parts.append(_esc(" ".join(orig_words[i1:i2])))
         elif opcode == "replace":
-            parts.append(f'<del class="del">{" ".join(orig_words[i1:i2])}</del>')
-            parts.append(f'<ins class="ins">{" ".join(prop_words[j1:j2])}</ins>')
+            parts.append(f'<del class="del">{_esc(" ".join(orig_words[i1:i2]))}</del>')
+            parts.append(f'<ins class="ins">{_esc(" ".join(prop_words[j1:j2]))}</ins>')
         elif opcode == "delete":
-            parts.append(f'<del class="del">{" ".join(orig_words[i1:i2])}</del>')
+            parts.append(f'<del class="del">{_esc(" ".join(orig_words[i1:i2]))}</del>')
         elif opcode == "insert":
-            parts.append(f'<ins class="ins">{" ".join(prop_words[j1:j2])}</ins>')
+            parts.append(f'<ins class="ins">{_esc(" ".join(prop_words[j1:j2]))}</ins>')
     return " ".join(parts)
 
 

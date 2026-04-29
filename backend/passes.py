@@ -228,8 +228,8 @@ def parse_pass_result(raw_json: str, pass_number: int) -> PassResult:
         raw = re.sub(r"^```[a-z]*\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
 
-    # Find the outermost JSON object even if Claude added surrounding text
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    # Find the first complete JSON object (non-greedy to avoid merging multiple)
+    match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", raw, re.DOTALL)
     if not match:
         return PassResult(pass_number=pass_number, pass_summary="Parse error — no changes applied.")
 

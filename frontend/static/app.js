@@ -220,7 +220,7 @@ const app = (() => {
 
   function onError({ message }) {
     hideStatus();
-    showStatus(`Error: ${message}`);
+    showStatus(`Error: ${String(message).slice(0, 200)}`);
   }
 
   // ── Decisions ──────────────────────────────────────────────────────────────
@@ -258,27 +258,57 @@ const app = (() => {
   async function loadSessionList() {
     try {
       const res = await fetch('/sessions');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       sessions = await res.json();
       renderSessionList();
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Could not load sessions:', err.message);
+    }
   }
 
   function renderSessionList() {
     const ul = $('session-list');
     ul.innerHTML = '';
     for (const s of sessions) {
-      const li = document.createElement('li');
       const isActive = s.session_id === sessionId;
+      const li = document.createElement('li');
       li.className = `flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-sm transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-100 text-gray-700'}`;
-      li.innerHTML = `
-        <span class="w-2 h-2 rounded-full flex-shrink-0 ${statusColor(s.status)}"></span>
-        <span class="truncate flex-1" title="${escHtml(s.filename)}">${escHtml(s.filename)}</span>
-        <button class="text-gray-300 hover:text-red-400 transition-colors text-xs" onclick="app.removeSession('${s.session_id}', event)">✕</button>
-      `;
-      li.addEventListener('click', () => loadExistingSession(s.session_id));
+      li.dataset.sessionId = s.session_id;
+
+      const dot = document.createElement('span');
+      dot.className = `w-2 h-2 rounded-full flex-shrink-0 ${statusColor(s.status)}`;
+
+      const label = document.createElement('span');
+      label.className = 'truncate flex-1';
+      label.title = s.filename;
+      label.textContent = s.filename;
+
+      const del = document.createElement('button');
+      del.className = 'text-gray-300 hover:text-red-400 transition-colors text-xs';
+      del.textContent = '✕';
+      del.dataset.deleteSession = s.session_id;
+      del.setAttribute('aria-label', `Delete session ${s.filename}`);
+
+      li.appendChild(dot);
+      li.appendChild(label);
+      li.appendChild(del);
       ul.appendChild(li);
     }
   }
+
+  // Delegated click handler for session list (no inline onclick)
+  document.addEventListener('click', (e) => {
+    const delBtn = e.target.closest('[data-delete-session]');
+    if (delBtn) {
+      e.stopPropagation();
+      removeSession(delBtn.dataset.deleteSession, e);
+      return;
+    }
+    const li = e.target.closest('[data-session-id]');
+    if (li && li.closest('#session-list')) {
+      loadExistingSession(li.dataset.sessionId);
+    }
+  });
 
   async function loadExistingSession(sid) {
     if (sid === sessionId) return;

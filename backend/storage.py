@@ -1,17 +1,33 @@
 from __future__ import annotations
 import json
+import logging
+import re
 from pathlib import Path
 from backend.models import ChapterSession
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+log = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _validate_session_id(session_id: str) -> None:
+    if not _UUID_RE.match(session_id):
+        raise ValueError(f"Invalid session_id format: {session_id!r}")
+
 
 def _session_path(session_id: str) -> Path:
+    _validate_session_id(session_id)
     return UPLOAD_DIR / f"{session_id}.json"
 
 
 def _text_path(session_id: str) -> Path:
+    _validate_session_id(session_id)
     return UPLOAD_DIR / f"{session_id}.txt"
 
 
@@ -56,6 +72,7 @@ def list_sessions() -> list[dict]:
                 "filename": session.filename,
                 "status": session.status,
             })
-        except Exception:
+        except Exception as exc:
+            log.warning("Skipping corrupt session file %s: %s", p, exc)
             continue
     return results

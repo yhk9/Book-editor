@@ -1,5 +1,7 @@
 from __future__ import annotations
 import asyncio
+import logging
+import os
 import uuid
 from typing import AsyncGenerator
 import anthropic
@@ -19,10 +21,13 @@ from backend.diff_engine import (
 )
 from backend.humanizer import scan_banned_vocabulary
 
-MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 8192
-DECISION_TIMEOUT = 300  # seconds user has to approve/reject each change
-MAX_WORDS_PER_BATCH = 800
+log = logging.getLogger(__name__)
+
+MODEL = os.environ.get("EDITOR_MODEL", "claude-sonnet-4-6")
+MAX_TOKENS = int(os.environ.get("EDITOR_MAX_TOKENS", "8192"))
+DECISION_TIMEOUT = int(os.environ.get("EDITOR_DECISION_TIMEOUT", "300"))
+MAX_WORDS_PER_BATCH = int(os.environ.get("EDITOR_BATCH_WORDS", "800"))
+_MAX_QUEUE_DRAIN = 50  # safety bound on stale-decision drain loop
 
 
 class BookEditorAgent:
@@ -280,16 +285,19 @@ class BookEditorAgent:
 
 
 async def _await_decision(queue: asyncio.Queue, change_id: str) -> str:
-    while True:
+    for _ in range(_MAX_QUEUE_DRAIN):
         try:
             decision = await asyncio.wait_for(queue.get(), timeout=DECISION_TIMEOUT)
         except asyncio.TimeoutError:
-            return "rejected"  # timeout = auto-reject, keep original
+            log.warning("Decision timeout for change %s — auto-rejecting", change_id)
+            return "rejected"
         if decision.get("change_id") == change_id:
             return decision.get("status", "rejected")
-        # Put back unrelated decisions (shouldn't happen, but safety net)
-        await queue.put(decision)
-        await asyncio.sleep(0.05)
+        # Stale decision for a different change_id — discard and keep waiting
+        log.debug("Discarding stale decision for change %s", decision.get("change_id"))
+        await asyncio.sleep(0.02)
+    log.error("Drain limit reached waiting for change %s — auto-rejecting", change_id)
+    return "rejected"
 
 
 def _event(event_type: str, data: dict) -> dict:

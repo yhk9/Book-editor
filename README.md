@@ -1,172 +1,227 @@
 # Book Chapter Editor
 
-An AI agent that edits your novel chapters while preserving your voice. It runs three structured passes over each chapter, shows you every proposed change as a before/after diff, and applies only the ones you approve.
+An AI agent that edits your novel chapters while preserving your voice. Upload a chapter, and it runs three structured editing passes — each proposed change shown as a before/after diff that you approve or reject one at a time.
 
 ---
 
-## What it does
-
-1. **Fingerprints your voice** — before touching a single word, it reads your chapter and extracts a precise profile of your writing style: average sentence length, punctuation habits, signature phrases, POV, dialogue ratio. Every edit is measured against this fingerprint.
-
-2. **Runs three editing passes**, each focused on a different level:
-   - **Pass 1 — Structure & Pacing**: scene order, momentum, chapter-end hooks, the LOCK framework (Lead / Objective / Confrontation / Knockout), show-don't-tell
-   - **Pass 2 — Voice & Tone**: dialogue subtext, sensory specificity, POV consistency, register alignment, emotional beats shown rather than stated
-   - **Pass 3 — Line-Level Polish**: filler phrases, weak verb+adverb pairs, banned AI vocabulary, sentence rhythm, grammar, punctuation
-
-3. **Asks you before applying anything** — each proposed change appears as a highlighted diff. You click Accept or Reject. The agent waits for your decision before moving to the next change.
-
-4. **Runs a humanizer audit** at the end — a two-pass sweep for the 29 most common AI-writing anti-patterns (significance inflation, rule of three, em dash overuse, sycophantic phrasing, etc.)
-
-5. **Flags voice conflicts** — if a proposed edit would alter your characteristic sentence rhythm or punctuation style, it gets a ⚠ Voice Alert badge so you can scrutinize it more carefully.
-
----
-
-## Setup
-
-### Requirements
-
-- Python 3.11+
-- An Anthropic API key (`sk-ant-api03-...` from [console.anthropic.com](https://console.anthropic.com))
-
-### Install
+## Quick start
 
 ```bash
 git clone https://github.com/yhk9/Book-editor.git
 cd Book-editor
-pip install -r requirements.txt
+bash install.sh
 ```
 
-### Configure your API key
+The installer checks your Python version, installs dependencies, creates a `.env` file, and sets up the Claude Code skill. Then:
 
-Create a `.env` file in the project root:
+1. Open `.env` and paste your Anthropic API key:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-api03-...
+   ```
+   Get one free at [console.anthropic.com](https://console.anthropic.com) → API Keys.
 
-```bash
-cp .env.example .env
-```
+2. Start the server:
+   ```bash
+   uvicorn backend.main:app --reload
+   ```
 
-Open `.env` and paste your key:
-
-```
-ANTHROPIC_API_KEY=sk-ant-api03-...
-```
-
-### Start the server
-
-```bash
-uvicorn backend.main:app --reload
-```
-
-Open your browser at **http://localhost:8000**
+3. Open **http://localhost:8000** and drop in a `.txt` chapter.
 
 ---
 
-## How to use it
+## Two ways to use it
 
-### 1. Upload a chapter
+| | Web app | Claude Code skill |
+|---|---|---|
+| How to start | `uvicorn backend.main:app` | `/book-editor` |
+| Interface | Browser with visual diffs | Claude Code terminal |
+| Needs API key | Yes (`ANTHROPIC_API_KEY`) | No — uses your Claude session |
+| Best for | Visual review, sharing | Quick edits inside Claude Code |
 
-Drag and drop a `.txt` file onto the upload zone in the left sidebar, or click the zone to browse. The file should be plain text — one chapter at a time works best.
+---
 
-The agent starts automatically once the file is uploaded.
+## Web app walkthrough
 
-### 2. Review the voice fingerprint
+### 1 — Upload your chapter
 
-After a few seconds, a **Voice Fingerprint** card appears at the top of the main panel. Click it to expand. It shows what the AI detected about your writing style — average sentence length, signature phrases, POV markers, dialogue ratio. This fingerprint governs every edit the agent proposes.
+Drag a `.txt` file onto the sidebar upload zone, or click to browse. Plain text only; up to 5 MB (configurable). The agent starts automatically.
 
-If the fingerprint looks wrong (e.g. it misidentified your POV), you can still use the tool — just be more aggressive about rejecting changes that don't sound like you.
+### 2 — Review the voice fingerprint
 
-### 3. Work through the changes
+After a few seconds, a **Voice Fingerprint** card appears. Click to expand it:
+
+```
+VOICE FINGERPRINT
+────────────────────────────────────────
+Average sentence length  8.1 words
+Short sentence ratio     41%  (< 8 words)
+POV / pronouns           she, her
+Dialogue ratio           12%
+Signature phrases        "she held", "nothing happened", ...
+Register                 clipped declarative, minimal punctuation
+────────────────────────────────────────
+Summary: This author writes in a tight third-person close, favoring
+short declarative sentences that accumulate pressure through repetition...
+```
+
+This fingerprint governs all three passes. Every proposed edit is measured against it — edits that deviate from your style get a ⚠ **Voice Alert** badge.
+
+### 3 — Work through the changes
 
 Each proposed change appears as a card:
 
 ```
-┌─────────────────────────────────────────┐
-│ PASS 1 · Structure & Pacing      1 / 7  │
-│ Craft principle: Chapter-end hook       │
-│                                         │
-│ BEFORE                                  │
-│  She put the key in the lock.           │
-│  Nothing happened.                      │
-│                                         │
-│ AFTER (word-level diff)                 │
-│  She slid the key in.                   │
-│  The lock ~~didn't~~ **refused to** turn│
-│                                         │
-│ WHY: Sentence rhythm — tension beat     │
-│                                         │
-│  [REJECT]              [ACCEPT]         │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ PASS 1 · Structure & Pacing              Change 2/7  │
+│ Craft: Chapter-end hook                              │
+│ ──────────────────────────────────────────────────── │
+│ BEFORE                                               │
+│  She put the key in the lock. Nothing happened.      │
+│ ──────────────────────────────────────────────────── │
+│ AFTER (word-level diff)                              │
+│  She slid the key in. The lock [refused to] turn.   │
+│ ──────────────────────────────────────────────────── │
+│ WHY: Sentence rhythm — tension beat needs compression │
+│                                                      │
+│  [  Reject  ]                   [  Accept  ]        │
+└──────────────────────────────────────────────────────┘
 ```
 
-- **Green highlights** = words added
-- **Red strikethrough** = words removed
-- The **WHY** line explains the craft reasoning behind each change
-- A **⚠ Voice Alert** badge (amber border) means the edit deviates from your detected style — review these carefully
+- Green = words added · Red strikethrough = words removed
+- **Accept** applies the change and moves to the next
+- **Reject** keeps your original and moves to the next
+- **Skip remaining in this pass** rejects all pending changes in the current pass
 
-Click **Accept** to apply the change, **Reject** to keep your original. The agent moves to the next change only after you decide.
+The agent waits for your decision before showing the next change. Nothing is applied without your approval.
 
-### 4. Skip a pass
+### 4 — The three passes
 
-If you want to skip all remaining changes in the current pass, click **Skip remaining changes in this pass** at the bottom of any change card. All pending changes in that pass are rejected and the next pass begins.
+| Pass | Focus |
+|------|-------|
+| **1 · Structure & Pacing** | Scene order, momentum, chapter-end hooks, LOCK framework, show-don't-tell |
+| **2 · Voice & Tone** | Dialogue subtext, sensory specificity, POV consistency, emotional beats |
+| **3 · Line-Level Polish** | Filler phrases, weak verbs, banned AI vocabulary, rhythm, grammar |
 
-### 5. Download the result
+After the three passes a **Humanizer Audit** runs automatically — two sweeps for AI-writing anti-patterns (significance inflation, em dash overuse, sycophantic phrasing, and 26 others).
 
-When all passes and the humanizer audit are complete, a **Download Edited Chapter** button appears. Click it to save the final `.txt` file with only your approved changes applied.
+### 5 — Download
+
+When complete, click **Download Edited Chapter** to save the final `.txt`. Only your approved changes are in it.
 
 ---
 
-## Tips for best results
+## Claude Code skill
 
-**Use a full chapter, not an excerpt.** The voice fingerprinter needs enough text to detect your patterns accurately — at least 500 words, ideally 1,000+.
+If you use Claude Code, the `/book-editor` skill is installed automatically by `install.sh` and works without any server or API key.
 
-**Accept sparingly in Pass 1.** Structural changes are the hardest to undo. If you're unsure about a scene reorder or a cut, reject it and decide manually.
+```
+/book-editor path/to/chapter.txt
+```
 
-**Trust Voice Alerts.** If a change gets flagged ⚠, it means the proposed text has different rhythm or vocabulary from the rest of your chapter. It might still be a good suggestion, but read it carefully before accepting.
+or just `/book-editor` — Claude will ask for the file.
 
-**Reject early, accept late.** Pass 3 (line-level) changes are safer to accept freely — a filler phrase cut or a weak verb swap rarely breaks anything. Pass 1 structural changes deserve more scrutiny.
+**To install the skill manually:**
+```bash
+mkdir -p ~/.claude/skills/book-editor
+cp .claude/skills/book-editor/SKILL.md ~/.claude/skills/book-editor/SKILL.md
+```
 
-**Run one chapter at a time.** The agent builds up a picture of your voice from the uploaded chapter. Running multiple chapters in separate sessions gives each chapter its own voice analysis.
+The skill runs the same workflow (voice fingerprint → 3 passes → audit) interactively in your terminal, showing each change and waiting for `y` / `n` before proceeding.
+
+---
+
+## Configuration
+
+All settings can be set in `.env`:
+
+```bash
+# Required
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Optional
+ANTHROPIC_BASE_URL=https://api.anthropic.com   # Custom API endpoint
+ANTHROPIC_TIMEOUT=120                           # API call timeout (seconds)
+EDITOR_MODEL=claude-sonnet-4-6                  # Claude model to use
+EDITOR_MAX_TOKENS=8192                          # Max tokens per API call
+EDITOR_DECISION_TIMEOUT=300                     # Seconds before auto-rejecting a change
+EDITOR_BATCH_WORDS=800                          # Words per batch for long chapters
+MAX_UPLOAD_MB=5                                 # Max chapter file size
+MAX_SESSIONS=100                                # Max concurrent sessions stored
+CORS_ORIGINS=https://yourdomain.com             # Comma-separated allowed origins
+```
+
+---
+
+## Tips
+
+**Use full chapters, not excerpts.** The voice fingerprinter needs at least 500 words to detect your patterns accurately. Longer is better.
+
+**Be selective in Pass 1.** Structural changes (scene reorders, cuts) are the hardest to undo. When unsure, reject and decide manually.
+
+**Voice Alerts deserve a second look.** They mean the proposed text has different rhythm or vocabulary from the rest of your chapter. Sometimes that's fine — sometimes it means the AI is drifting from your voice.
+
+**Accept Pass 3 changes freely.** Filler phrase cuts and weak-verb replacements are low-risk. Review the WHY and accept if it sounds right.
+
+**One chapter at a time.** Each session builds a voice profile from its uploaded chapter. Running separate sessions keeps each chapter's voice analysis clean.
 
 ---
 
 ## Sessions
 
-Your sessions are listed in the sidebar and persist between server restarts. You can:
+Sessions are listed in the sidebar and persist between server restarts. Click any session to return to it. If your browser disconnects mid-session, reload — the last unanswered change is replayed automatically.
 
-- **Click a session** to return to it
-- **✕** next to a session name to delete it
+Delete a session with the **✕** button. The server also caps sessions at `MAX_SESSIONS` (default 100) to prevent unbounded growth.
 
-If your browser disconnects mid-session, reload the page — the last unanswered change will be replayed automatically.
+---
+
+## Troubleshooting
+
+**"No API key found"**
+Add `ANTHROPIC_API_KEY=sk-ant-api03-...` to your `.env` file and restart the server.
+
+**Nothing happens after upload**
+Check the terminal running `uvicorn` for error output. A missing API key or network issue will show up there.
+
+**Voice fingerprint looks wrong**
+This can happen with very short chapters or chapters that mix multiple POVs. Use the full chapter and the analysis improves.
+
+**Download produces the original text**
+All changes were rejected — which is fine. Your chapter was already clean, or you chose to keep your originals.
+
+**Server won't start — "port already in use"**
+```bash
+# Use a different port
+uvicorn backend.main:app --port 8001 --reload
+```
 
 ---
 
 ## Architecture
 
 ```
-browser ←── SSE stream ──── FastAPI ──── Claude (Anthropic API)
-   │                           │
-   └── POST /decision ─────────┘
-         (accept/reject)   asyncio.Queue
+Browser  ←── SSE stream ──── FastAPI  ──── Anthropic API
+   │                            │
+   └─── POST /decision ─────────┘
+         (accept / reject)    asyncio.Queue
 ```
 
 | File | Role |
 |------|------|
-| `backend/agent.py` | Orchestrates the full loop: voice analysis → 3 passes → audit. Yields SSE events, awaits decisions via `asyncio.Queue` |
-| `backend/passes.py` | System prompts for all 3 passes + humanizer audit, with prompt caching via `cache_control: ephemeral` |
-| `backend/voice_analyzer.py` | Fingerprints author voice using Claude + local sentence metrics |
+| `backend/agent.py` | Orchestrates the loop: voice analysis → 3 passes → audit. Yields SSE events, awaits decisions via `asyncio.Queue` |
+| `backend/passes.py` | System prompts for all 3 passes + humanizer audit, with `cache_control: ephemeral` prompt caching |
+| `backend/voice_analyzer.py` | Voice fingerprinting via Claude + local sentence metrics |
 | `backend/humanizer.py` | All 29 AI-writing anti-pattern rules, injected into every system prompt |
-| `backend/diff_engine.py` | Word-level HTML diff, paragraph-level change application |
-| `backend/main.py` | FastAPI routes: upload, SSE stream, decision endpoint, download |
-| `frontend/index.html` | Single-page app (Tailwind CDN, no build step) |
-| `frontend/static/app.js` | SSE client, change card rendering, accept/reject logic |
+| `backend/diff_engine.py` | Word-level HTML diff (with HTML escaping) and change application engine |
+| `backend/storage.py` | Atomic filesystem session persistence with UUID path validation |
+| `backend/main.py` | FastAPI routes, security headers, input validation, SSE endpoint, decision endpoint |
+| `frontend/index.html` | Single-page app (Tailwind CDN, no build step needed) |
+| `frontend/static/app.js` | SSE client, change card rendering, accept/reject, session list |
+| `.claude/skills/book-editor/SKILL.md` | Portable Claude Code skill (no server required) |
 
 ---
 
-## Troubleshooting
+## Requirements
 
-**"No API key found"** — make sure `ANTHROPIC_API_KEY` is set in your `.env` file and the server was restarted after you added it.
-
-**Voice fingerprint looks wrong** — this can happen with very short chapters or chapters that mix multiple POVs. Use the full chapter and the analysis will be more accurate.
-
-**A change card never appears** — the agent may be waiting on a large Claude response. Give it up to 30 seconds per pass. Check the server terminal for error output.
-
-**Download produces the original text** — this means all changes were rejected. That's fine — it means your chapter was already clean.
+- Python 3.11+
+- An [Anthropic API key](https://console.anthropic.com)
+- A modern browser (Chrome, Firefox, Safari, Edge)
